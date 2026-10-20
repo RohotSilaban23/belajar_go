@@ -11,6 +11,7 @@ import (
 func Init(e *echo.Echo,
 	userHandler *handler.UserHandler,
 	authHandler *handler.AuthHandler,
+	forgetHandler *handler.ForgotPasswordHandler,
 	jwtMiddleware *middleware.JWTMiddleware) {
 
 	// Route
@@ -25,4 +26,8 @@ func Init(e *echo.Echo,
 
 	e.POST("/login", authHandler.Login)
 	e.POST("/logout", authHandler.Logout, jwtMiddleware.Authenticate)
+	e.POST("/forget_password", forgetHandler.ForgotPassword)
+	e.POST("/change-password", forgetHandler.ChangePassword)
+	e.POST("/refresh-Token", authHandler.RefreshToken)
+	e.POST("/users/confirm-register-otp", userHandler.ConfirmRegisterOTP)
 }

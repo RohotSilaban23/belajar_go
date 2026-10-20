@@ -51,3 +51,44 @@ func (r *RedisService) DeleteToken(
 
 	return r.Client.Del(ctx, key).Err()
 }
+
+func (r *RedisService) IsTokenActive(
+	ctx context.Context,
+	token string,
+) (bool, error) {
+
+	key := "active_token:" + token
+
+	exists, err := r.Client.Exists(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+
+	return exists == 1, nil
+}
+
+func (r *RedisService) SaveOTP(
+	ctx context.Context,
+	email string,
+	otpHash string,
+	expiration time.Duration,
+) error {
+	key := "forgot_password_otp:" + email
+	return r.Client.Set(ctx, key, otpHash, expiration).Err()
+}
+
+func (r *RedisService) GetOTP(
+	ctx context.Context,
+	email string,
+) (string, error) {
+	key := "forgot_password_otp:" + email
+	return r.Client.Get(ctx, key).Result()
+}
+
+func (r *RedisService) DeleteOTP(
+	ctx context.Context,
+	email string,
+) error {
+	key := "forgot_password_otp:" + email
+	return r.Client.Del(ctx, key).Err()
+}

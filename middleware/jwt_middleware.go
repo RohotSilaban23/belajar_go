@@ -3,6 +3,7 @@ package middleware
 import (
 	"belajar_go/redis"
 	"crypto/rsa"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -85,6 +86,7 @@ func (m *JWTMiddleware) Authenticate(next echo.HandlerFunc) echo.HandlerFunc {
 				"message": "Gagal mengecek token",
 			})
 		}
+		log.Printf("DEBUG Redis EXISTS: %d", exists)
 		if exists == 0 {
 			return c.JSON(http.StatusUnauthorized, map[string]string{
 				"message": "Token sudah tidak aktif",

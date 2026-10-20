@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"crypto/rsa"
+	"fmt"
 	"os"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 type JWTService struct {
 	PrivateKey *rsa.PrivateKey
+	PublicKey  *rsa.PublicKey
 }
 
 func NewJWTService() (*JWTService, error) {
@@ -24,8 +26,19 @@ func NewJWTService() (*JWTService, error) {
 		return nil, err
 	}
 
+	publicKeyData, err := os.ReadFile("keys/public.pem")
+	if err != nil {
+		return nil, err
+	}
+
+	publicKey, err := jwt.ParseRSAPublicKeyFromPEM(publicKeyData)
+	if err != nil {
+		return nil, err
+	}
+
 	return &JWTService{
 		PrivateKey: privateKey,
+		PublicKey:  publicKey,
 	}, nil
 }
 
@@ -48,4 +61,43 @@ func (j *JWTService) GenerateToken(userID int64, email string) (string, error) {
 	}
 
 	return tokenString, nil
+}
+
+func (j *JWTService) ValidateToken(
+	tokenString string,
+) (int64, string, error) {
+
+	claims := jwt.MapClaims{}
+
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		claims,
+		func(token *jwt.Token) (interface{}, error) {
+			if token.Method != jwt.SigningMethodRS256 {
+				return nil, fmt.Errorf("algoritma JWT tidak valid")
+			}
+
+			return j.PublicKey, nil
+		},
+	)
+
+	if err != nil {
+		return 0, "", err
+	}
+
+	if !token.Valid {
+		return 0, "", fmt.Errorf("token tidak valid")
+	}
+
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return 0, "", fmt.Errorf("user_id tidak ditemukan")
+	}
+
+	email, ok := claims["email"].(string)
+	if !ok {
+		return 0, "", fmt.Errorf("email tidak ditemukan")
+	}
+
+	return int64(userID), email, nil
 }

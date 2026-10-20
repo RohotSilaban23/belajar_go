@@ -3,6 +3,7 @@ package repository
 import (
 	"belajar_go/model"
 	"database/sql"
+	"fmt"
 )
 
 type UserRepository struct {
@@ -16,13 +17,15 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 func (r *UserRepository) Create(user *model.User) (*model.User, error) {
-	query := `INSERT INTO users(name, email, password) VALUES (?, ?, ?)`
+	query := `INSERT INTO users(nama, email, password, role, isActive) VALUES (?, ?, ?, ?, ?)`
 
 	result, err := r.DB.Exec(
 		query,
-		user.Name,
+		user.Nama,
 		user.Email,
 		user.Password,
+		user.Role,
+		false,
 	)
 
 	if err != nil {
@@ -62,17 +65,18 @@ func (r *UserRepository) FindByID(
 	user := &model.User{}
 	err := r.DB.QueryRow(
 		`
-		SELECT id, name, email, password, created_at
+		SELECT id, nama, email, password, role, isActive
 		FROM users
 		WHERE id = ?
 		`,
 		id,
 	).Scan(
 		&user.ID,
-		&user.Name,
+		&user.Nama,
 		&user.Email,
 		&user.Password,
-		&user.CreatedAt,
+		&user.Role,
+		&user.IsActive,
 	)
 
 	if err != nil {
@@ -82,22 +86,23 @@ func (r *UserRepository) FindByID(
 	return user, nil
 }
 
-func (r *UserRepository) FindByEmai(
+func (r *UserRepository) FindByEmail(
 	email string,
 ) (*model.User, error) {
 
 	user := &model.User{}
 	err := r.DB.QueryRow(
 		`
-		SELECT * FROM users WHERE email = ?
+		SELECT id, nama, email, password, role, isActive FROM users WHERE email = ?
 		`,
 		email,
 	).Scan(
 		&user.ID,
-		&user.Name,
+		&user.Nama,
 		&user.Email,
 		&user.Password,
-		&user.CreatedAt,
+		&user.Role,
+		&user.IsActive,
 	)
 
 	if err != nil {
@@ -110,15 +115,17 @@ func (r *UserRepository) FindByEmai(
 func (r *UserRepository) UpdateUser(user *model.User) (*model.User, error) {
 	query := `
         UPDATE users
-        SET name = ?, email = ?, password = ?
+        SET nama = ?, email = ?, password = ?, role = ?, isActive = ?
         WHERE id = ?
     `
 
 	_, err := r.DB.Exec(
 		query,
-		user.Name,
+		user.Nama,
 		user.Email,
 		user.Password,
+		user.Role,
+		user.IsActive,
 		user.ID,
 	)
 
@@ -127,4 +134,26 @@ func (r *UserRepository) UpdateUser(user *model.User) (*model.User, error) {
 	}
 
 	return nil, err
+}
+
+func (r *UserRepository) ActivateUser(email string) error {
+	result, err := r.DB.Exec(
+		`UPDATE users SET isActive = TRUE
+         WHERE email = ? AND isActive = FALSE`,
+		email,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("akun tidak ditemukan atau sudah aktif")
+	}
+
+	return nil
 }

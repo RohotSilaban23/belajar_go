@@ -3,6 +3,7 @@ package handler
 import (
 	"belajar_go/model"
 	"belajar_go/service"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -11,11 +12,13 @@ import (
 
 type UserHandler struct {
 	UserService *service.UserService
+	OtpService  *service.ForgotPasswordService
 }
 
-func NewUserHandler(userService *service.UserService) *UserHandler {
+func NewUserHandler(userService *service.UserService, otpService *service.ForgotPasswordService) *UserHandler {
 	return &UserHandler{
 		UserService: userService,
+		OtpService:  otpService,
 	}
 }
 
@@ -37,7 +40,23 @@ func (h *UserHandler) CreateUser(c *echo.Context) error {
 		})
 	}
 
-	return c.JSON(http.StatusCreated, CreateUser)
+	_, err = h.OtpService.CreateOTP(
+		c.Request().Context(),
+		user.Email,
+	)
+
+	if err != nil {
+		log.Println("DEBUG CreateOTP gagal:", err)
+
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"message": "Akun berhasil dibuat, tetapi OTP gagal dikirim",
+		})
+	}
+
+	return c.JSON(http.StatusCreated, map[string]string{
+		"message": "Registrasi berhasil diproses. Silakan periksa email untuk OTP verifikasi.",
+		"email":   CreateUser.Email,
+	})
 }
 
 func (h *UserHandler) FindByID(c *echo.Context) error {
@@ -55,6 +74,8 @@ func (h *UserHandler) FindByID(c *echo.Context) error {
 	user, err := h.UserService.FindByID(id)
 
 	if err != nil {
+		log.Println("DEBUG FindByID - ID:", id)
+		log.Println("DEBUG FindByID - Error:", err)
 		return c.JSON(http.StatusNotFound, map[string]string{
 			"message": "User tidak ditemukan",
 		})
@@ -113,4 +134,35 @@ func (h *UserHandler) UpdateUser(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, updatedUser)
+}
+
+func (h *UserHandler) ConfirmRegisterOTP(c *echo.Context) error {
+	var request model.RequestOtpRegister
+
+	if err := c.Bind(&request); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"message": "Request tidak valid",
+		})
+	}
+
+	if request.Email == "" || request.OTP == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"message": "Email dan OTP wajib diisi",
+		})
+	}
+
+	err := h.OtpService.ConfirmRegisterOTP(
+		c.Request().Context(),
+		request.Email,
+		request.OTP,
+	)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "Konfirmasi berhasil. Akun kamu sekarang aktif.",
+	})
 }
